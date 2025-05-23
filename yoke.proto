@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+package yoke;
+
+// Describes a kind of stitch
+message StitchType {
+  // Unique but hopefully human-readable identifier, like "k" or "yo"
+  string name = 1;
+
+  // Number of stitches from the previous round that this stitch "consumes".
+  // For example: 1 for a knit or purl stitch, 0 for a yarnover, 2 for a k2tog.
+  uint32 count_before = 2;
+
+  // Number of stitches in the new round that this stitch "creates".  For
+  // example: 1 for a knit stitch, yarnover, or k2tog; 2 for a make-1 increase.
+  uint32 count_after = 3;
+
+  // Describes the stitch height as a factor of "typical" (stockinette) gauge.
+  // This is used to calculate approximate fit.  1.0 for most stitches; perhaps
+  // 0.8 if slipped stitches are involved; 0.0 for the nonexistent placeholder
+  // stitches in the part of a short row that is not knit.
+  float height_factor = 4;
+}
+
+// Describes an individual stitch used in a pattern
+message Stitch {
+  // Name of the stitch type to be used to knit this stitch
+  string stitch_type_name = 1;
+
+  // Identifies a Yarn to be used for this stitch
+  uint32 yarn_id = 2;
+}
+
+// A specific yarn to be used in a pattern
+message Yarn {
+  // An ID unique among all yarn types/colors used in the pattern
+  uint32 yarn_id = 1;
+
+  // Human-readable identifier, like "MC" or "CC" or "Color A".  For one's
+  // own sanity this should probably also be unique.
+  string name = 2;
+
+  // Hex color, used for display purposes
+  string color = 3;
+
+  // Nominal gauge (converted from a human-friendlier gauge format like
+  // stitches/rounds per 10cm)
+  float stitch_width_mm = 4;
+  float stitch_height_mm = 5;
+}
+
+// Describes one row (or round) of stitches
+message Row {
+  repeated Stitch stitches = 1;
+}
+
+// Describes a section of knitting which may be repeated (for example, a
+// colorwork or motif panel)
+message Panel {
+  // Human-readable identifier like "Panel A"
+  string name = 1;
+
+  // Stitch descriptions for the panel.  Panels can be validated by verifying
+  // that each row consumes the number of stitches produced by the previous
+  // row (that is, each row's total count_after must equal the next row's
+  // count_before).
+  repeated Row rows = 2;
+}
+
+// A panel, repeated some integer number of times to form a full row or round
+message RepeatedPanel {
+  int32 repeat_count = 1;
+  Panel panel = 2;
+}
+
+// A Tube is one or more RepeatedPanels stacked vertically on top of each other
+// to form the specification for a larger-scale component such as a sleeve.
+// Not necessarily knit in the round.  Can be validated by verifying that each
+// RepeatedPanel's final stitch count matches the initial stitch count for the
+// next RepeatedPanel.
+message Tube {
+  // RepeatedPanel sections, starting from the cast-on.
+  repeated RepeatedPanel repeated_panels = 1;
+}
+
+// Serializable sweater pattern description
+message SweaterPattern {
+  // Human-readable identifier describing the sweater
+  string name = 1;
+
+  // Yarns and StitchTypes used in this pattern.  Stitches with yarn ID or
+  // stitch type name not found in these fields will not validate.
+  repeated Yarn yarns_used = 2;
+  repeated StitchType stitch_types_used = 3;
+
+  // Tubes describing each of the main sweater components.  If both sleeves are
+  // identical, one of them can be left empty.
+  Tube left_sleeve = 10;
+  Tube right_sleeve = 11;
+  Tube torso = 12;
+  Tube yoke = 13;
+
+  // TODO: Come up with a better format for describing joins between tubes
+  // in full generality
+
+  // Number of stitches in the armpit graft joining sleeves and torso
+  uint32 armpit_graft_length = 14;
+
+  // Number of stitches from the torso round marker (start of row) to the start
+  // of the left sleeve's armpit graft.  This should be generated automatically
+  // but can be adjusted in case e.g. it is desired to have more stitches on
+  // the front of the torso than on the back to accommodate a larger chest.
+  uint32 torso_to_left_sleeve_join = 15;
+
+  // Number of stitches from the torso round marker to the start of the right
+  // sleeve's armpit graft (see above)
+  uint32 torso_to_right_sleeve_join = 16;
+}
+
+// Sweater measurements for a person, which can be reused to generate multiple
+// sweater patterns.  All measurements stored in cm.
+message SweaterMeasurements {
+  // -- Required/basic measurements --
+
+  // Distance from armpit seam to end of hem
+  float torso_length = 1;
+  float sleeve_length = 2;
+
+  // Measured at chest just under armpits
+  float torso_circumference = 3;
+
+  // Measured around bicep
+  float sleeve_circumference_bicep = 4;
+
+  // Measured around wrist
+  float sleeve_circumference_wrist = 5;
+
+  // Distance from torso/yoke join to collar
+  float yoke_depth = 6;
+
+  float collar_circumference = 7;
+
+  // -- Optional measurements for fit adjustments or taste --
+
+  // Ribbing lengths (sensible defaults are chosen if not specified)
+  optional float sleeve_rib_length = 10;  // at sleeve cuff
+  optional float torso_rib_length = 11;  // at torso hem
+  optional float collar_rib_length = 12;
+
+  // Used to give the torso hourglass shaping; if all are unspecified, torso
+  // will be knit as a straight tube with no increases/decreases.
+  // If only hip circumference is specified, sweater will be generated with
+  // linear increases/decreases from armpit to hips.  If only waist is
+  // specified, hip to waist distance is assumed to be half of total torso
+  // tube length and hip circumference is assumed to be equal to chest
+  // circumference.  Hip to waist distance is ignored if neither hip nor waist
+  // circumference is specified.
+  optional float hip_circumference = 13;
+  optional float waist_circumference = 14;
+  optional float hip_to_waist_distance = 15;
+
+  // Short rows can be used to make the collar back higher than the front.
+  optional float collar_back_rise = 16;
+
+  // Distance from left armpit graft to right armpit graft across chest, used
+  // to move stitches around so more of them are in the front if more chest
+  // room is needed.  If unspecified, sleeves will be placed diametrically
+  // across from each other.
+  optional float chest_front_width = 17;
+}
