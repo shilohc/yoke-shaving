@@ -27,8 +27,9 @@ message Stitch {
   // Name of the stitch type to be used to knit this stitch
   string stitch_type_name = 1;
 
-  // Identifies a Yarn to be used for this stitch
-  uint32 yarn_id = 2;
+  // Identifies Yarn(s) to be used for this stitch, one per stitch in
+  // count_after.  This list will be extended or truncated as needed.
+  repeated uint32 yarn_id = 2;
 }
 
 // A specific yarn to be used in a pattern

@@ -1,0 +1,7 @@
+module(
+    name = "yoke_shaving",
+    repo_name = "yoke_shaving",
+)
+
+bazel_dep(name = "protobuf", version = "31.0")
+bazel_dep(name = "rules_python", version = "1.0.0")

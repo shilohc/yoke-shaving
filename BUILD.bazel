@@ -1,0 +1,14 @@
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
+proto_library(
+    name = "yoke_proto",
+    srcs = ["proto/yoke.proto"],
+)
+
+py_proto_library(
+    name = "yoke_py_pb2",
+    visibility = ["//visibility:public"],
+    deps = [":yoke_proto"],
+)
